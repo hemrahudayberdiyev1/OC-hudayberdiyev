@@ -1,4 +1,4 @@
-# Factorial, Deduplication and Linked List Reversal Services
+# OC Hudayberdiyev Hemraberdi
 
 ## Overview
 
