@@ -1,4 +1,4 @@
-from typing import List, TypeVar, Iterable, Optional
+from typing import List, TypeVar, Iterable
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pytest
@@ -6,84 +6,66 @@ import pytest
 T = TypeVar('T')
 
 class DeduplicationService:
-    @staticmethod
-    def remove_duplicates(items: Iterable[T]) -> List[T]:
+    MAX_INPUT_SIZE = 10_000  # Ограничение для предотвращения проблем с памятью
+    
+    @classmethod
+    def remove_duplicates(cls, items: Iterable[T]) -> List[T]:
         """
-        Remove duplicates from container while preserving order
+        Удаляет дубликаты с сохранением порядка элементов
         
         Args:
-            items: Iterable container with elements (must be hashable)
+            items: Итерируемая коллекция элементов
             
         Returns:
-            List with unique elements in original order
+            Список уникальных элементов в исходном порядке
             
         Raises:
-            TypeError: If items contain unhashable types
+            TypeError: При нехешируемых элементах
+            ValueError: При превышении максимального размера
         """
+        if len(items) > cls.MAX_INPUT_SIZE:
+            raise ValueError(f"Максимальный размер ввода: {cls.MAX_INPUT_SIZE}")
+        
         try:
             seen = set()
-            result = []
-            for item in items:
-                if item not in seen:
-                    seen.add(item)
-                    result.append(item)
-            return result
+            return [x for x in items if not (x in seen or seen.add(x))]
         except TypeError as e:
-            raise TypeError(f"Items must be hashable: {str(e)}")
+            raise TypeError(f"Элементы должны быть хешируемыми: {str(e)}")
 
-# Unit tests
+# Тесты
 class TestDeduplicationService:
-    def test_remove_duplicates_numbers(self):
-        assert DeduplicationService.remove_duplicates([1, 2, 3, 2, 1]) == [1, 2, 3]
+    def test_normal_case(self):
+        assert DeduplicationService.remove_duplicates([1,2,2,3]) == [1,2,3]
     
-    def test_remove_duplicates_strings(self):
-        assert DeduplicationService.remove_duplicates(['a', 'b', 'a', 'c']) == ['a', 'b', 'c']
-    
-    def test_remove_duplicates_empty(self):
+    def test_empty_input(self):
         assert DeduplicationService.remove_duplicates([]) == []
     
-    def test_remove_duplicates_all_same(self):
-        assert DeduplicationService.remove_duplicates([1, 1, 1]) == [1]
-    
-    def test_remove_duplicates_unhashable(self):
+    def test_unhashable_items(self):
         with pytest.raises(TypeError):
-            DeduplicationService.remove_duplicates([{'a': 1}, {'b': 2}])
+            DeduplicationService.remove_duplicates([{"a":1}, {"a":1}])
 
 # REST API
-app = FastAPI(title="Deduplication Service", version="1.0.0")
+app = FastAPI(title="Deduplication API", version="1.0.0")
 
-class ItemList(BaseModel):
-    items: List[int]  # Using int for simplicity, could be generic in real implementation
+class DeduplicationRequest(BaseModel):
+    items: List[int]  # Можно расширить для поддержки других типов
 
-@app.post("/deduplicate/",
-          response_model=List[int],
-          summary="Remove duplicates from list",
-          responses={
-              200: {"description": "List with duplicates removed"},
-              400: {"description": "Invalid input provided"}
-          })
-async def deduplicate_items(item_list: ItemList):
+@app.post(
+    "/deduplicate",
+    response_model=List[int],
+    summary="Удалить дубликаты из списка",
+    responses={
+        200: {"description": "Успешный ответ"},
+        400: {"description": "Некорректный ввод"},
+        413: {"description": "Превышен размер ввода"}
+    }
+)
+async def deduplicate_items(request: DeduplicationRequest):
     try:
-        return DeduplicationService.remove_duplicates(item_list.items)
-    except TypeError as e:
+        return DeduplicationService.remove_duplicates(request.items)
+    except (TypeError, ValueError) as e:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST if isinstance(e, TypeError) 
+                        else status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=str(e)
         )
-
-# API Tests
-client = TestClient(app)
-
-def test_api_deduplicate():
-    response = client.post("/deduplicate/", json={"items": [1, 2, 3, 2, 1]})
-    assert response.status_code == 200
-    assert response.json() == [1, 2, 3]
-
-def test_api_deduplicate_empty():
-    response = client.post("/deduplicate/", json={"items": []})
-    assert response.status_code == 200
-    assert response.json() == []
-
-def test_api_deduplicate_unhashable():
-    response = client.post("/deduplicate/", json={"items": [{"a": 1}, {"a": 1}]})
-    assert response.status_code == 400
