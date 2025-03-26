@@ -1,31 +1,24 @@
 # OC Hudayberdiyev Hemraberdi
 
-## Overview
+# Алгоритмический микросервис
 
-This project provides three industrial-grade microservices:
+## Описание
 
-1. **Factorial Service** - Generates first n factorials
-2. **Deduplication Service** - Removes duplicates from lists while preserving order
-3. **Linked List Service** - Reverses linked lists using recursion
+Этот микросервис предоставляет три основные алгоритмические операции через REST API:
 
-The services are implemented as REST APIs using FastAPI with comprehensive error handling, input validation, and complete test coverage.
+1. **Генерация последовательности факториалов**
+2. **Удаление дубликатов из списка с сохранением порядка**
+3. **Рекурсивный разворот связного списка**
 
-## Features
+Сервис разработан с учетом промышленных стандартов, включая обработку ошибок, валидацию входных данных и полное тестовое покрытие.
 
-- ✅ **Production-ready code** with proper error handling
-- 🛡️ **Input validation** and sanitization
-- 📊 **Comprehensive testing** (unit + integration)
-- 📚 **Full API documentation** (Swagger UI included)
-- ⚡ **Performance optimizations** with reasonable limits
-- 🔍 **Type hints** throughout the codebase
+## Как это работает
 
-## Services
+### 1. Сервис факториалов
 
-### 1. Factorial Service
+**Что делает**: Вычисляет последовательность факториалов от 1! до n!
 
-**Endpoint:** `GET /factorials/{n}`
-
-Calculates first n factorials (1! to n!)
-
-**Parameters:**
-- `n`: Positive integer (1-10000)
+**Особенности**:
+- Валидация входного параметра (только натуральные числа)
+- Защита от переполнения
+- Ограничение максимального значения n (1000)
